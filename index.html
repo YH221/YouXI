@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>解压打小人</title>
+<title>解压打小人 - 增强版</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
 body {
@@ -51,15 +51,16 @@ body {
   color: #555;
   font-weight: 600;
 }
-.counter span { color: #e74c3c; font-size: 28px; margin-left: 4px; }
+.counter span { color: #e74c3c; font-size: 28px; margin-left: 4px; font-family: monospace; }
 .btn {
   padding: 8px 20px;
   border: none;
   border-radius: 20px;
   cursor: pointer;
   font-size: 14px;
-  transition: all 0.3s;
+  transition: all 0.2s;
   font-weight: 600;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 .btn-reset {
   background: #95a5a6;
@@ -71,10 +72,11 @@ body {
   color: white;
   margin-left: 8px;
 }
-.btn-lock:hover { background: #c0392b; }
+.btn-lock:hover { background: #c0392b; transform: translateY(-2px); }
 .btn-locked {
   background: #27ae60;
-  cursor: not-allowed;
+  cursor: default;
+  transform: none;
 }
 
 /* 主画布 */
@@ -82,6 +84,7 @@ body {
   flex: 1;
   position: relative;
   overflow: hidden;
+  perspective: 1000px; /* 增加透视感 */
 }
 .floor {
   position: absolute;
@@ -90,6 +93,7 @@ body {
   height: 120px;
   background: linear-gradient(to bottom, #e0c3a3 0%, #d4b08c 100%);
   border-top: 4px solid #c9a67a;
+  z-index: 1;
 }
 
 /* 小人容器 */
@@ -101,6 +105,7 @@ body {
   width: 200px;
   height: 320px;
   cursor: pointer;
+  z-index: 10;
 }
 .name-tag {
   position: absolute;
@@ -118,6 +123,7 @@ body {
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
+  border: 2px solid #e74c3c;
 }
 .name-tag.show { opacity: 1; }
 .name-tag::after {
@@ -128,36 +134,39 @@ body {
   transform: translateX(-50%);
   border-width: 6px 6px 0;
   border-style: solid;
-  border-color: #fff transparent transparent transparent;
+  border-color: #e74c3c transparent transparent transparent;
 }
 
 /* SVG 小人 */
 .doll-svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15));
+  filter: drop-shadow(0 15px 25px rgba(0,0,0,0.2));
 }
 .doll-head { transform-origin: 100px 70px; }
-.doll-body-group { transform-origin: 100px 180px; }
 .eye { transition: transform 0.1s; }
 .blink .eye { transform: scaleY(0.1); }
-.mouth { transition: d 0.2s; }
+.mouth { transition: d 0.1s; }
 .pain .mouth { d: path("M 85 115 Q 100 105 115 115"); }
 
-/* 受击动画 */
+/* 身体受击变红效果 */
+.doll-body { transition: fill 0.1s; }
+.hit-damage .doll-body { fill: #ff4d4d; }
+
+/* 受击震动动画 */
 @keyframes shake {
   0%, 100% { transform: translateX(-50%) translate(0, 0) rotate(0deg); }
-  10% { transform: translateX(-50%) translate(-8px, -4px) rotate(-5deg); }
-  20% { transform: translateX(-50%) translate(6px, 4px) rotate(3deg); }
-  30% { transform: translateX(-50%) translate(-6px, 2px) rotate(-3deg); }
-  40% { transform: translateX(-50%) translate(4px, -2px) rotate(2deg); }
-  50% { transform: translateX(-50%) translate(-4px, 4px) rotate(-2deg); }
-  60% { transform: translateX(-50%) translate(2px, -4px) rotate(1deg); }
+  10% { transform: translateX(-50%) translate(-10px, -5px) rotate(-5deg); }
+  20% { transform: translateX(-50%) translate(8px, 5px) rotate(3deg); }
+  30% { transform: translateX(-50%) translate(-8px, 3px) rotate(-3deg); }
+  40% { transform: translateX(-50%) translate(5px, -3px) rotate(2deg); }
+  50% { transform: translateX(-50%) translate(-5px, 4px) rotate(-2deg); }
+  60% { transform: translateX(-50%) translate(3px, -4px) rotate(1deg); }
   70% { transform: translateX(-50%) translate(-2px, 2px) rotate(-1deg); }
   80% { transform: translateX(-50%) translate(1px, -1px) rotate(0deg); }
   90% { transform: translateX(-50%) translate(-1px, 1px) rotate(0deg); }
 }
-.shaking { animation: shake 0.5s ease-in-out; }
+.shaking { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
 
 /* 棍子 */
 .bat {
@@ -170,9 +179,10 @@ body {
   transform: rotate(-35deg);
   cursor: grab;
   z-index: 50;
+  transition: transform 0.1s;
   filter: drop-shadow(4px 4px 8px rgba(0,0,0,0.3));
 }
-.bat:active { cursor: grabbing; }
+.bat:active { cursor: grabbing; transform: rotate(-30deg) scale(0.95); }
 .bat-handle {
   position: absolute;
   bottom: 0;
@@ -188,21 +198,22 @@ body {
   bottom: 70px;
   left: 50%;
   transform: translateX(-50%);
-  width: 28px;
+  width: 30px;
   height: 140px;
   background: linear-gradient(to right, #d4a373, #faedcd, #d4a373);
   border-radius: 12px 12px 4px 4px;
   border: 2px solid #b08968;
+  box-shadow: inset 2px 2px 5px rgba(0,0,0,0.1);
 }
 
 /* 挥棒动画 */
 @keyframes swing {
   0% { transform: rotate(-35deg); }
-  40% { transform: rotate(55deg); }
-  70% { transform: rotate(45deg); }
+  30% { transform: rotate(60deg); } /* 挥到最高点 */
+  50% { transform: rotate(40deg); } /* 快速下落 */
   100% { transform: rotate(-35deg); }
 }
-.bat-swinging { animation: swing 0.4s ease-in-out; pointer-events: none; }
+.bat-swinging { animation: swing 0.35s ease-in-out; pointer-events: none; }
 
 /* 输入区 */
 .input-area {
@@ -218,6 +229,7 @@ body {
   border-radius: 50px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.15);
   z-index: 100;
+  backdrop-filter: blur(5px);
 }
 .input-area input {
   border: 2px solid #ddd;
@@ -231,47 +243,62 @@ body {
 .input-area input:focus { border-color: #e74c3c; }
 .input-area input:disabled { background: #f5f5f5; color: #999; }
 
-/* 特效 */
+/* 特效层 */
 .effect-layer {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
   pointer-events: none;
   z-index: 200;
+  overflow: hidden;
 }
 .particle {
   position: absolute;
   font-size: 24px;
   font-weight: bold;
-  color: #e74c3c;
-  animation: particleFly 0.6s ease-out forwards;
+  animation: particleFly 0.8s ease-out forwards;
   pointer-events: none;
 }
 @keyframes particleFly {
   0% { transform: translate(0,0) scale(1); opacity: 1; }
   100% { transform: translate(var(--tx), var(--ty)) scale(0.5); opacity: 0; }
 }
+/* 冲击波特效 */
+.shockwave {
+  position: absolute;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 4px solid white;
+  transform: translate(-50%, -50%);
+  animation: shockAnim 0.4s ease-out forwards;
+}
+@keyframes shockAnim {
+  0% { width: 10px; height: 10px; opacity: 1; border-width: 10px; }
+  100% { width: 200px; height: 200px; opacity: 0; border-width: 0px; }
+}
+
 .pain-text {
   position: absolute;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: bold;
   color: #e74c3c;
-  text-shadow: 2px 2px 0 #fff;
+  text-shadow: 2px 2px 0 #fff, -1px -1px 0 #fff;
   animation: painPop 0.8s ease-out forwards;
   pointer-events: none;
+  z-index: 201;
 }
 @keyframes painPop {
   0% { transform: translate(-50%,-50%) scale(0.5); opacity: 0; }
-  20% { transform: translate(-50%,-50%) scale(1.2); opacity: 1; }
-  100% { transform: translate(-50%,-80px) scale(1); opacity: 0; }
+  20% { transform: translate(-50%,-50%) scale(1.3); opacity: 1; }
+  100% { transform: translate(-50%,-100px) scale(1); opacity: 0; }
 }
 .hit-flash {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(255,0,0,0.1);
+  background: radial-gradient(circle, rgba(255,0,0,0.2) 0%, rgba(0,0,0,0) 70%);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.1s;
+  transition: opacity 0.05s;
   z-index: 90;
 }
 .hit-flash.active { opacity: 1; }
@@ -279,15 +306,19 @@ body {
 /* 提示文字 */
 .hint {
   position: absolute;
-  top: 50%;
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: rgba(255,255,255,0.4);
-  font-size: 18px;
+  color: rgba(255,255,255,0.6);
+  font-size: 20px;
   pointer-events: none;
   text-align: center;
   line-height: 1.6;
+  font-weight: bold;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: float 2s infinite ease-in-out;
 }
+@keyframes float { 0%,100% { transform: translate(-50%, -50%); } 50% { transform: translate(-50%, -60%); } }
 </style>
 </head>
 <body>
@@ -298,7 +329,7 @@ body {
     <span class="name-display" id="displayName">未锁定</span>
   </div>
   <div class="counter-box">
-    <div class="counter">击打次数：<span id="hitCount">0</span></div>
+    <div class="counter">暴击次数：<span id="hitCount">0</span></div>
     <button class="btn btn-reset" onclick="resetAll()">重置</button>
   </div>
 </div>
@@ -307,7 +338,7 @@ body {
   <div class="floor"></div>
   
   <div class="hint" id="hintText">
-    输入名字并锁定<br>点击或拖拽棍子开始击打
+    👇 在下方输入名字锁定 👇<br>然后按住或点击棍子释放压力
   </div>
 
   <!-- 小人 -->
@@ -317,7 +348,7 @@ body {
       <!-- 腿 -->
       <line x1="85" y1="220" x2="75" y2="300" stroke="#333" stroke-width="14" stroke-linecap="round"/>
       <line x1="115" y1="220" x2="125" y2="300" stroke="#333" stroke-width="14" stroke-linecap="round"/>
-      <!-- 身体 -->
+      <!-- 身体 (带变色类) -->
       <rect x="70" y="130" width="60" height="100" rx="15" fill="#3498db" class="doll-body"/>
       <!-- 手臂 -->
       <line x1="70" y1="150" x2="40" y2="200" stroke="#f1c27d" stroke-width="12" stroke-linecap="round"/>
@@ -358,7 +389,7 @@ body {
 
 <!-- 底部输入 -->
 <div class="input-area">
-  <input type="text" id="nameInput" placeholder="输入名字..." maxlength="8">
+  <input type="text" id="nameInput" placeholder="输入目标名字..." maxlength="8">
   <button class="btn btn-lock" id="lockBtn" onclick="toggleLock()">锁定</button>
 </div>
 
@@ -378,14 +409,59 @@ const hintText = document.getElementById('hintText');
 let locked = false;
 let count = 0;
 let isDragging = false;
-let dragStartAngle = 0;
-let dragStartMouse = {x:0, y:0};
 let currentRotation = -35;
+// 用于防止连续点击过快
+let hitCooldown = false;
+
+// 音效系统 (Web Audio API)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playHitSound() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  
+  // 1. 生成打击音 (短促的方波/锯齿波)
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  
+  // 随机改变音调，增加趣味性
+  const freq = 150 + Math.random() * 100; 
+  
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+  
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+  
+  gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+  
+  osc.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.2);
+
+  // 2. 生成撞击音 (噪声模拟)
+  const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < noiseBuffer.length; i++) {
+    output[i] = Math.random() * 2 - 1;
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+  noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+  noise.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+  noise.start();
+}
 
 // 锁定功能
 function toggleLock() {
   if (locked) {
-    // 解锁
     locked = false;
     nameInput.disabled = false;
     lockBtn.textContent = '锁定';
@@ -415,18 +491,14 @@ function toggleLock() {
 function resetAll() {
   count = 0;
   hitCountEl.textContent = '0';
-  doll.classList.remove('shaking');
+  doll.classList.remove('shaking', 'hit-damage');
   dollHead.classList.remove('blink', 'pain');
-  // 不解锁名字，只重置计数和平静状态
 }
 
-// 获取棍子中心点（支点）
+// 获取棍子中心点
 function getPivot() {
   const rect = bat.getBoundingClientRect();
-  return {
-    x: rect.left + rect.width / 2,
-    y: rect.bottom - 20 // 手握位置偏上一点
-  };
+  return { x: rect.left + rect.width / 2, y: rect.bottom - 20 };
 }
 
 // 计算角度
@@ -438,33 +510,24 @@ function getAngle(x, y) {
 // 拖拽开始
 bat.addEventListener('mousedown', (e) => {
   if (!locked) {
-    // 未锁定时提示
     nameInput.focus();
-    nameInput.style.borderColor = '#e74c3c';
-    setTimeout(() => nameInput.style.borderColor = '#ddd', 500);
     return;
   }
   isDragging = true;
-  const angle = getAngle(e.clientX, e.clientY);
-  dragStartAngle = angle;
-  dragStartMouse = {x: e.clientX, y: e.clientY};
   bat.style.transition = 'none';
   e.preventDefault();
 });
 
-// 全局移动
 document.addEventListener('mousemove', (e) => {
   if (!isDragging) return;
   const angle = getAngle(e.clientX, e.clientY);
   let rot = angle;
-  // 限制角度范围，避免翻转
   if (rot < -80) rot = -80;
   if (rot > 80) rot = 80;
   currentRotation = rot;
   bat.style.transform = `rotate(${rot}deg)`;
 });
 
-// 释放
 document.addEventListener('mouseup', () => {
   if (!isDragging) return;
   isDragging = false;
@@ -472,8 +535,8 @@ document.addEventListener('mouseup', () => {
   bat.style.transform = `rotate(-35deg)`;
   currentRotation = -35;
   
-  // 判定是否挥棒（简单判定：释放时角度大于0视为挥出）
-  if (currentRotation > 0 || Math.abs(currentRotation - (-35)) > 30) {
+  // 判定是否挥棒
+  if (currentRotation > 0 || Math.abs(currentRotation - (-35)) > 20) {
     performHit();
   }
 });
@@ -487,83 +550,110 @@ bat.addEventListener('click', (e) => {
   }
   if (bat.classList.contains('bat-swinging')) return;
   bat.classList.add('bat-swinging');
-  setTimeout(() => bat.classList.remove('bat-swinging'), 400);
-  setTimeout(() => performHit(), 150); // 在挥到中间时触发
+  setTimeout(() => bat.classList.remove('bat-swinging'), 350);
+  setTimeout(() => performHit(), 100); // 调整时机配合动画
 });
 
-// 点击小人（直接用拳头的效果）
+// 点击小人
 doll.addEventListener('click', () => {
   if (!locked) return;
-  performHit(true); // true表示直接点击小人，不用棍子动画
+  performHit(true);
 });
 
 // 执行击打
 function performHit(skipBatAnim) {
+  if (hitCooldown) return; // 防止过于频繁的点击
+  hitCooldown = true;
+  setTimeout(() => hitCooldown = false, 100);
+
   if (!skipBatAnim && !bat.classList.contains('bat-swinging')) {
     bat.classList.add('bat-swinging');
-    setTimeout(() => bat.classList.remove('bat-swinging'), 400);
+    setTimeout(() => bat.classList.remove('bat-swinging'), 350);
   }
+  
+  playHitSound(); // 播放声音
   
   count++;
   hitCountEl.textContent = count;
   
-  // 小人颤抖
-  doll.classList.remove('shaking');
+  // 小人受击逻辑
+  doll.classList.remove('shaking', 'hit-damage');
   void doll.offsetWidth; // 强制重绘
+  
+  // 视觉反馈
   doll.classList.add('shaking');
-  setTimeout(() => doll.classList.remove('shaking'), 500);
+  doll.classList.add('hit-damage'); // 身体变红
   
-  // 眨眼和疼痛表情
   dollHead.classList.add('blink', 'pain');
-  setTimeout(() => dollHead.classList.remove('blink', 'pain'), 600);
   
-  // 屏幕闪红
+  // 屏幕闪烁
   flash.classList.add('active');
-  setTimeout(() => flash.classList.remove('active'), 100);
+  setTimeout(() => flash.classList.remove('active'), 80);
   
-  // 生成特效
+  // 移除痛表情
+  setTimeout(() => {
+    doll.classList.remove('shaking', 'hit-damage');
+    dollHead.classList.remove('blink', 'pain');
+  }, 400);
+  
+  // 特效位置
   const dollRect = doll.getBoundingClientRect();
   const centerX = dollRect.left + dollRect.width / 2;
   const centerY = dollRect.top + dollRect.height / 3;
   
   createParticles(centerX, centerY);
   showPainText(centerX, centerY - 40);
+  createShockwave(centerX, centerY);
 }
 
 // 粒子特效
 function createParticles(x, y) {
-  const symbols = ['★', '●', '💥', '✦', '✸', '✹'];
-  const colors = ['#e74c3c', '#f39c12', '#e67e22', '#c0392b', '#f1c40f'];
-  for (let i = 0; i < 10; i++) {
+  const symbols = ['★', '✸', '💥', '✦', '⚡'];
+  const colors = ['#e74c3c', '#f1c40f', '#fff', '#e67e22'];
+  
+  for (let i = 0; i < 8; i++) {
     const p = document.createElement('div');
     p.className = 'particle';
     p.textContent = symbols[Math.floor(Math.random() * symbols.length)];
     p.style.left = x + 'px';
     p.style.top = y + 'px';
     p.style.color = colors[Math.floor(Math.random() * colors.length)];
+    p.style.fontSize = (15 + Math.random() * 15) + 'px';
+    
     const angle = Math.random() * Math.PI * 2;
-    const dist = 40 + Math.random() * 80;
+    const dist = 60 + Math.random() * 60;
     p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
     p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
-    p.style.fontSize = (16 + Math.random() * 16) + 'px';
     effects.appendChild(p);
-    setTimeout(() => p.remove(), 600);
+    setTimeout(() => p.remove(), 800);
   }
+}
+
+// 冲击波特效
+function createShockwave(x, y) {
+  const el = document.createElement('div');
+  el.className = 'shockwave';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  effects.appendChild(el);
+  setTimeout(() => el.remove(), 400);
 }
 
 // 疼痛文字
 function showPainText(x, y) {
-  const texts = ['哎哟!', '好痛!', 'Ouch!', '啊!', '救命!', '轻点!'];
+  const texts = ['哎哟!', '好痛!', 'Ouch!', '啊!', '救命!', '轻点!', '😵', '😭'];
   const el = document.createElement('div');
   el.className = 'pain-text';
   el.textContent = texts[Math.floor(Math.random() * texts.length)];
   el.style.left = x + 'px';
   el.style.top = y + 'px';
+  // 随机微调位置
+  const offsetX = (Math.random() - 0.5) * 40;
+  el.style.transform = `translateX(${offsetX}px)`;
   effects.appendChild(el);
   setTimeout(() => el.remove(), 800);
 }
 
-// 键盘回车锁定
 nameInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') toggleLock();
 });
