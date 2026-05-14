@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>解压打小人</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+body {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶部栏 */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 32px;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  z-index: 100;
+}
+.target-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.target-name .label { color: #888; font-size: 14px; font-weight: normal; }
+.target-name .name-display {
+  color: #e74c3c;
+  font-size: 24px;
+  text-decoration: underline wavy #e74c3c;
+  min-width: 80px;
+  display: inline-block;
+}
+.counter-box {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.counter {
+  font-size: 18px;
+  color: #555;
+  font-weight: 600;
+}
+.counter span { color: #e74c3c; font-size: 28px; margin-left: 4px; }
+.btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+  font-weight: 600;
+}
+.btn-reset {
+  background: #95a5a6;
+  color: white;
+}
+.btn-reset:hover { background: #7f8c8d; transform: translateY(-2px); }
+.btn-lock {
+  background: #e74c3c;
+  color: white;
+  margin-left: 8px;
+}
+.btn-lock:hover { background: #c0392b; }
+.btn-locked {
+  background: #27ae60;
+  cursor: not-allowed;
+}
+
+/* 主画布 */
+.stage {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+.floor {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 120px;
+  background: linear-gradient(to bottom, #e0c3a3 0%, #d4b08c 100%);
+  border-top: 4px solid #c9a67a;
+}
+
+/* 小人容器 */
+.doll-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: 100px;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 320px;
+  cursor: pointer;
+}
+.name-tag {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  color: #e74c3c;
+  font-size: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.name-tag.show { opacity: 1; }
+.name-tag::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px 6px 0;
+  border-style: solid;
+  border-color: #fff transparent transparent transparent;
+}
+
+/* SVG 小人 */
+.doll-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15));
+}
+.doll-head { transform-origin: 100px 70px; }
+.doll-body-group { transform-origin: 100px 180px; }
+.eye { transition: transform 0.1s; }
+.blink .eye { transform: scaleY(0.1); }
+.mouth { transition: d 0.2s; }
+.pain .mouth { d: path("M 85 115 Q 100 105 115 115"); }
+
+/* 受击动画 */
+@keyframes shake {
+  0%, 100% { transform: translateX(-50%) translate(0, 0) rotate(0deg); }
+  10% { transform: translateX(-50%) translate(-8px, -4px) rotate(-5deg); }
+  20% { transform: translateX(-50%) translate(6px, 4px) rotate(3deg); }
+  30% { transform: translateX(-50%) translate(-6px, 2px) rotate(-3deg); }
+  40% { transform: translateX(-50%) translate(4px, -2px) rotate(2deg); }
+  50% { transform: translateX(-50%) translate(-4px, 4px) rotate(-2deg); }
+  60% { transform: translateX(-50%) translate(2px, -4px) rotate(1deg); }
+  70% { transform: translateX(-50%) translate(-2px, 2px) rotate(-1deg); }
+  80% { transform: translateX(-50%) translate(1px, -1px) rotate(0deg); }
+  90% { transform: translateX(-50%) translate(-1px, 1px) rotate(0deg); }
+}
+.shaking { animation: shake 0.5s ease-in-out; }
+
+/* 棍子 */
+.bat {
+  position: absolute;
+  right: 25%;
+  bottom: 140px;
+  width: 24px;
+  height: 220px;
+  transform-origin: 50% 90%; /* 手握住在底部 */
+  transform: rotate(-35deg);
+  cursor: grab;
+  z-index: 50;
+  filter: drop-shadow(4px 4px 8px rgba(0,0,0,0.3));
+}
+.bat:active { cursor: grabbing; }
+.bat-handle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 80px;
+  background: linear-gradient(to right, #5d4037, #8d6e63, #5d4037);
+  border-radius: 4px;
+}
+.bat-barrel {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 140px;
+  background: linear-gradient(to right, #d4a373, #faedcd, #d4a373);
+  border-radius: 12px 12px 4px 4px;
+  border: 2px solid #b08968;
+}
+
+/* 挥棒动画 */
+@keyframes swing {
+  0% { transform: rotate(-35deg); }
+  40% { transform: rotate(55deg); }
+  70% { transform: rotate(45deg); }
+  100% { transform: rotate(-35deg); }
+}
+.bat-swinging { animation: swing 0.4s ease-in-out; pointer-events: none; }
+
+/* 输入区 */
+.input-area {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.95);
+  padding: 12px 24px;
+  border-radius: 50px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  z-index: 100;
+}
+.input-area input {
+  border: 2px solid #ddd;
+  border-radius: 24px;
+  padding: 10px 20px;
+  font-size: 16px;
+  outline: none;
+  width: 200px;
+  transition: border-color 0.3s;
+}
+.input-area input:focus { border-color: #e74c3c; }
+.input-area input:disabled { background: #f5f5f5; color: #999; }
+
+/* 特效 */
+.effect-layer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 200;
+}
+.particle {
+  position: absolute;
+  font-size: 24px;
+  font-weight: bold;
+  color: #e74c3c;
+  animation: particleFly 0.6s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes particleFly {
+  0% { transform: translate(0,0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0.5); opacity: 0; }
+}
+.pain-text {
+  position: absolute;
+  font-size: 20px;
+  font-weight: bold;
+  color: #e74c3c;
+  text-shadow: 2px 2px 0 #fff;
+  animation: painPop 0.8s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes painPop {
+  0% { transform: translate(-50%,-50%) scale(0.5); opacity: 0; }
+  20% { transform: translate(-50%,-50%) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%,-80px) scale(1); opacity: 0; }
+}
+.hit-flash {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255,0,0,0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  z-index: 90;
+}
+.hit-flash.active { opacity: 1; }
+
+/* 提示文字 */
+.hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(255,255,255,0.4);
+  font-size: 18px;
+  pointer-events: none;
+  text-align: center;
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="target-name">
+    <span class="label">当前目标：</span>
+    <span class="name-display" id="displayName">未锁定</span>
+  </div>
+  <div class="counter-box">
+    <div class="counter">击打次数：<span id="hitCount">0</span></div>
+    <button class="btn btn-reset" onclick="resetAll()">重置</button>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="floor"></div>
+  
+  <div class="hint" id="hintText">
+    输入名字并锁定<br>点击或拖拽棍子开始击打
+  </div>
+
+  <!-- 小人 -->
+  <div class="doll-wrap" id="doll">
+    <div class="name-tag" id="nameTag">小人</div>
+    <svg class="doll-svg" viewBox="0 0 200 320">
+      <!-- 腿 -->
+      <line x1="85" y1="220" x2="75" y2="300" stroke="#333" stroke-width="14" stroke-linecap="round"/>
+      <line x1="115" y1="220" x2="125" y2="300" stroke="#333" stroke-width="14" stroke-linecap="round"/>
+      <!-- 身体 -->
+      <rect x="70" y="130" width="60" height="100" rx="15" fill="#3498db" class="doll-body"/>
+      <!-- 手臂 -->
+      <line x1="70" y1="150" x2="40" y2="200" stroke="#f1c27d" stroke-width="12" stroke-linecap="round"/>
+      <line x1="130" y1="150" x2="160" y2="200" stroke="#f1c27d" stroke-width="12" stroke-linecap="round"/>
+      <!-- 头组 -->
+      <g class="doll-head" id="dollHead">
+        <circle cx="100" cy="70" r="45" fill="#f1c27d"/>
+        <!-- 头发 -->
+        <path d="M 55 60 Q 100 10 145 60" fill="none" stroke="#2c3e50" stroke-width="8" stroke-linecap="round"/>
+        <!-- 眼睛 -->
+        <g class="eye">
+          <circle cx="82" cy="65" r="6" fill="#333"/>
+          <circle cx="84" cy="63" r="2" fill="#fff"/>
+        </g>
+        <g class="eye">
+          <circle cx="118" cy="65" r="6" fill="#333"/>
+          <circle cx="120" cy="63" r="2" fill="#fff"/>
+        </g>
+        <!-- 腮红 -->
+        <ellipse cx="75" cy="85" rx="8" ry="5" fill="rgba(255,0,0,0.15)"/>
+        <ellipse cx="125" cy="85" rx="8" ry="5" fill="rgba(255,0,0,0.15)"/>
+        <!-- 嘴巴 -->
+        <path class="mouth" d="M 88 90 Q 100 100 112 90" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- 棍子 -->
+  <div class="bat" id="bat">
+    <div class="bat-handle"></div>
+    <div class="bat-barrel"></div>
+  </div>
+
+  <!-- 特效层 -->
+  <div class="effect-layer" id="effects"></div>
+  <div class="hit-flash" id="flash"></div>
+</div>
+
+<!-- 底部输入 -->
+<div class="input-area">
+  <input type="text" id="nameInput" placeholder="输入名字..." maxlength="8">
+  <button class="btn btn-lock" id="lockBtn" onclick="toggleLock()">锁定</button>
+</div>
+
+<script>
+const doll = document.getElementById('doll');
+const dollHead = document.getElementById('dollHead');
+const bat = document.getElementById('bat');
+const nameInput = document.getElementById('nameInput');
+const lockBtn = document.getElementById('lockBtn');
+const displayName = document.getElementById('displayName');
+const nameTag = document.getElementById('nameTag');
+const hitCountEl = document.getElementById('hitCount');
+const effects = document.getElementById('effects');
+const flash = document.getElementById('flash');
+const hintText = document.getElementById('hintText');
+
+let locked = false;
+let count = 0;
+let isDragging = false;
+let dragStartAngle = 0;
+let dragStartMouse = {x:0, y:0};
+let currentRotation = -35;
+
+// 锁定功能
+function toggleLock() {
+  if (locked) {
+    // 解锁
+    locked = false;
+    nameInput.disabled = false;
+    lockBtn.textContent = '锁定';
+    lockBtn.classList.remove('btn-locked');
+    displayName.textContent = '未锁定';
+    nameTag.classList.remove('show');
+    hintText.style.display = 'block';
+  } else {
+    const name = nameInput.value.trim();
+    if (!name) {
+      nameInput.style.borderColor = '#e74c3c';
+      setTimeout(() => nameInput.style.borderColor = '#ddd', 500);
+      return;
+    }
+    locked = true;
+    nameInput.disabled = true;
+    lockBtn.textContent = '已锁定';
+    lockBtn.classList.add('btn-locked');
+    displayName.textContent = name;
+    nameTag.textContent = name;
+    nameTag.classList.add('show');
+    hintText.style.display = 'none';
+  }
+}
+
+// 重置
+function resetAll() {
+  count = 0;
+  hitCountEl.textContent = '0';
+  doll.classList.remove('shaking');
+  dollHead.classList.remove('blink', 'pain');
+  // 不解锁名字，只重置计数和平静状态
+}
+
+// 获取棍子中心点（支点）
+function getPivot() {
+  const rect = bat.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.bottom - 20 // 手握位置偏上一点
+  };
+}
+
+// 计算角度
+function getAngle(x, y) {
+  const pivot = getPivot();
+  return Math.atan2(x - pivot.x, pivot.y - y) * (180 / Math.PI);
+}
+
+// 拖拽开始
+bat.addEventListener('mousedown', (e) => {
+  if (!locked) {
+    // 未锁定时提示
+    nameInput.focus();
+    nameInput.style.borderColor = '#e74c3c';
+    setTimeout(() => nameInput.style.borderColor = '#ddd', 500);
+    return;
+  }
+  isDragging = true;
+  const angle = getAngle(e.clientX, e.clientY);
+  dragStartAngle = angle;
+  dragStartMouse = {x: e.clientX, y: e.clientY};
+  bat.style.transition = 'none';
+  e.preventDefault();
+});
+
+// 全局移动
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const angle = getAngle(e.clientX, e.clientY);
+  let rot = angle;
+  // 限制角度范围，避免翻转
+  if (rot < -80) rot = -80;
+  if (rot > 80) rot = 80;
+  currentRotation = rot;
+  bat.style.transform = `rotate(${rot}deg)`;
+});
+
+// 释放
+document.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  bat.style.transition = 'transform 0.3s ease-out';
+  bat.style.transform = `rotate(-35deg)`;
+  currentRotation = -35;
+  
+  // 判定是否挥棒（简单判定：释放时角度大于0视为挥出）
+  if (currentRotation > 0 || Math.abs(currentRotation - (-35)) > 30) {
+    performHit();
+  }
+});
+
+// 点击棍子直接击打
+bat.addEventListener('click', (e) => {
+  if (isDragging) return;
+  if (!locked) {
+    nameInput.focus();
+    return;
+  }
+  if (bat.classList.contains('bat-swinging')) return;
+  bat.classList.add('bat-swinging');
+  setTimeout(() => bat.classList.remove('bat-swinging'), 400);
+  setTimeout(() => performHit(), 150); // 在挥到中间时触发
+});
+
+// 点击小人（直接用拳头的效果）
+doll.addEventListener('click', () => {
+  if (!locked) return;
+  performHit(true); // true表示直接点击小人，不用棍子动画
+});
+
+// 执行击打
+function performHit(skipBatAnim) {
+  if (!skipBatAnim && !bat.classList.contains('bat-swinging')) {
+    bat.classList.add('bat-swinging');
+    setTimeout(() => bat.classList.remove('bat-swinging'), 400);
+  }
+  
+  count++;
+  hitCountEl.textContent = count;
+  
+  // 小人颤抖
+  doll.classList.remove('shaking');
+  void doll.offsetWidth; // 强制重绘
+  doll.classList.add('shaking');
+  setTimeout(() => doll.classList.remove('shaking'), 500);
+  
+  // 眨眼和疼痛表情
+  dollHead.classList.add('blink', 'pain');
+  setTimeout(() => dollHead.classList.remove('blink', 'pain'), 600);
+  
+  // 屏幕闪红
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 100);
+  
+  // 生成特效
+  const dollRect = doll.getBoundingClientRect();
+  const centerX = dollRect.left + dollRect.width / 2;
+  const centerY = dollRect.top + dollRect.height / 3;
+  
+  createParticles(centerX, centerY);
+  showPainText(centerX, centerY - 40);
+}
+
+// 粒子特效
+function createParticles(x, y) {
+  const symbols = ['★', '●', '💥', '✦', '✸', '✹'];
+  const colors = ['#e74c3c', '#f39c12', '#e67e22', '#c0392b', '#f1c40f'];
+  for (let i = 0; i < 10; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    p.style.color = colors[Math.floor(Math.random() * colors.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 80;
+    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    p.style.fontSize = (16 + Math.random() * 16) + 'px';
+    effects.appendChild(p);
+    setTimeout(() => p.remove(), 600);
+  }
+}
+
+// 疼痛文字
+function showPainText(x, y) {
+  const texts = ['哎哟!', '好痛!', 'Ouch!', '啊!', '救命!', '轻点!'];
+  const el = document.createElement('div');
+  el.className = 'pain-text';
+  el.textContent = texts[Math.floor(Math.random() * texts.length)];
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  effects.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+// 键盘回车锁定
+nameInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') toggleLock();
+});
+</script>
+
+</body>
+</html>
